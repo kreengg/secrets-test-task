@@ -1,9 +1,11 @@
+from uuid import UUID
+
 from fastapi import Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.models.log import Action, Log
 from src.models.secret import Secret
-from src.schemas.secret import SecretCreate, SecretKeyGet
+from src.schemas.secret import SecretCreate
 from src.utils.secret import encode_secret
 
 
@@ -11,9 +13,7 @@ class SecretService:
     def __init__(self, session: AsyncSession):
         self.session = session
 
-    async def create_secret(
-        self, request: Request, secret_data: SecretCreate
-    ) -> SecretKeyGet:
+    async def create_secret(self, request: Request, secret_data: SecretCreate) -> UUID:
         secret = Secret(
             secret=encode_secret(secret_data.secret),
             passphrase=secret_data.passphrase,
