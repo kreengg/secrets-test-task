@@ -19,7 +19,7 @@ class Log(Base):
 
     # Возможно не стоит удалять секреты из бд, после получения/удаления,
     # но тогда все равно не получится сделать Foreign Key в логи,
-    # т.к. их надо очищать с периодичностью -> secret_key в логах не ключ
+    # т.к. их надо очищать с периодичностью, поэтому secret_key в логах не FK
 
     id: Mapped[int] = mapped_column(primary_key=True, nullable=False, unique=True)
     secret_key: Mapped[UUID] = mapped_column(nullable=False)
