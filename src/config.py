@@ -18,7 +18,7 @@ class DatabaseConfig(BaseSettings):
     password: SecretStr
     host: str | None = None
     port: int | None = None
-    database: str | None = None
+    db: str | None = None
 
     driver: str = "asyncpg"
     database_system: str = "postgresql"
@@ -31,7 +31,7 @@ class DatabaseConfig(BaseSettings):
             password=self.password.get_secret_value(),
             host=self.host,
             port=self.port,
-            path=self.database,
+            path=self.db,
         )
         return dsn.unicode_string()
 
