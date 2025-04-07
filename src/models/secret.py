@@ -4,7 +4,7 @@ from uuid import UUID, uuid4
 from sqlalchemy import DateTime
 from sqlalchemy.orm import Mapped, mapped_column
 
-from src.database import Base
+from src.infra.database import Base
 
 
 class Secret(Base):

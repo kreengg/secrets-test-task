@@ -10,7 +10,7 @@ from alembic import context
 from src.config import config as app_config
 
 # Import models for migrations
-from src.database import Base
+from src.infra.database import Base
 import src.models
 
 # this is the Alembic Config object, which provides
