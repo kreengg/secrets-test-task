@@ -26,13 +26,8 @@ class SecretService:
         await self.session.flush()
         await self.session.refresh(secret)
 
-        log = Log(
-            secret_key=secret.secret_key,
-            action=Action.create,
-            ip_address=request.client.host,
-            ttl_seconds=secret.ttl_seconds,
-        )
-        self.session.add(log)
+        self._log_secret_action(Action.create, request, secret)
+
         await self.session.commit()
 
         return secret.secret_key
@@ -48,23 +43,34 @@ class SecretService:
             return None
         encoded_secret = secret.secret
 
-        log_secret_get = Log(
-            secret_key=secret_key,
-            action=Action.get,
-            ip_address=request.client.host,
-            ttl_seconds=secret.ttl_seconds,
-        )
-        log_secret_delete = Log(
-            secret_key=secret_key,
-            action=Action.delete,
-            ip_address=request.client.host,
-            ttl_seconds=secret.ttl_seconds,
-        )
-        self.session.add(log_secret_get)
-        self.session.add(log_secret_delete)
+        self._log_secret_action(Action.get, request, secret)
+        self._log_secret_action(Action.delete, request, secret)
 
         await self.session.delete(secret)
         await self.session.commit()
 
         decoded_secret = decode_secret(encoded_secret)
         return decoded_secret
+
+    async def delete_secret(self, request: Request, secret_key: UUID) -> None:
+        stmt = select(Secret).where(Secret.secret_key == secret_key)
+        result = await self.session.execute(stmt)
+        secret = result.scalars().first()
+        if not secret:
+            return None
+        await self.session.delete(secret)
+
+        self._log_secret_action(Action.delete, request, secret)
+
+        await self.session.commit()
+
+    def _log_secret_action(
+        self, action: Action, request: Request, secret: Secret
+    ) -> None:
+        log = Log(
+            secret_key=secret.secret_key,
+            action=action,
+            ip_address=request.client.host,
+            ttl_seconds=secret.ttl_seconds,
+        )
+        self.session.add(log)

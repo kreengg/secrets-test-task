@@ -3,7 +3,7 @@ from uuid import UUID
 from fastapi import APIRouter, HTTPException, Request, status
 
 from src.api.dependencies import SessionDep
-from src.api.schemas import ErrorResponse
+from src.api.schemas import ErrorResponse, StatusResponse
 from src.schemas.secret import SecretCreate, SecretGet, SecretKeyGet
 from src.services.secret import SecretService
 
@@ -48,3 +48,18 @@ async def get_secret(
         )
 
     return SecretGet(secret=secret)
+
+
+@router.delete(
+    "/{secret_key}",
+)
+async def delete_secret(
+    session: SessionDep,
+    request: Request,
+    secret_key: UUID,
+) -> StatusResponse:
+    service = SecretService(session)
+    await service.delete_secret(request, secret_key)
+    # Нужна ли ошибка если по ключу ничего не найдено?
+
+    return StatusResponse(status="secret_deleted")
