@@ -11,6 +11,12 @@ BASE_DIRECTORY = Path(__file__).resolve().parent.parent
 load_dotenv(find_dotenv(str(BASE_DIRECTORY / ".env")))
 
 
+class AppConfig(BaseSettings):
+    model_config = SettingsConfigDict(env_prefix="APP_")
+
+    encryption_key: str
+
+
 class DatabaseConfig(BaseSettings):
     model_config = SettingsConfigDict(env_prefix="POSTGRES_")
 
@@ -37,6 +43,7 @@ class DatabaseConfig(BaseSettings):
 
 
 class Config(BaseSettings):
+    app: AppConfig = AppConfig()
     db: DatabaseConfig = DatabaseConfig()
 
 

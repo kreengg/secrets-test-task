@@ -1,14 +1,16 @@
+from uuid import UUID
+
 from pydantic import BaseModel, Field
 
 
 class SecretCreate(BaseModel):
     secret: str
     passphrase: str | None = None
-    ttl: int | None = Field(default=None, gt=0)
+    ttl_seconds: int | None = Field(default=None, gt=0)
 
 
 class SecretKeyGet(BaseModel):
-    secret_key: str
+    secret_key: UUID
 
 
 class SecretGet(BaseModel):
