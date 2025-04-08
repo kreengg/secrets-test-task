@@ -42,6 +42,14 @@ class DatabaseConfig(BaseSettings):
         return dsn.unicode_string()
 
 
+class RedisConfig(BaseSettings):
+    model_config = SettingsConfigDict(env_prefix="REDIS_")
+
+    host: str
+    port: int
+    password: str
+
+
 class Config(BaseSettings):
     app: AppConfig = AppConfig()
     db: DatabaseConfig = DatabaseConfig()

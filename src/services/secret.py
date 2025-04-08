@@ -1,7 +1,9 @@
+import datetime
 from uuid import UUID
 
 from fastapi import Request
-from sqlalchemy import select
+from redis import Redis
+from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.models.log import Action, Log
@@ -11,20 +13,31 @@ from src.utils.secret import decode_secret, encode_secret
 
 
 class SecretService:
-    def __init__(self, session: AsyncSession):
+    def __init__(self, session: AsyncSession, cache: Redis):
         self.session = session
+        self.cache = cache
 
     async def create_secret(self, request: Request, secret_data: SecretCreate) -> UUID:
-        # TODO: кеш
+        # TODO: вынести логику бд и кеша в отдельные методы, но пока нет идей как
 
         secret = Secret(
             secret=encode_secret(secret_data.secret),
-            passphrase=secret_data.passphrase,
+            passphrase=secret_data.passphrase,  # Надо ли шифровать passphrase?
             ttl_seconds=secret_data.ttl_seconds,
         )
         self.session.add(secret)
         await self.session.flush()
         await self.session.refresh(secret)
+
+        self.cache.hset(
+            str(secret.secret_key).encode(),
+            mapping={
+                "secret": secret.secret,
+                "passphrase": secret.passphrase,
+                "ttl_seconds": secret.ttl_seconds,
+                "created_at": secret.created_at.timestamp(),
+            },
+        )
 
         self._log_secret_action(Action.create, request, secret)
 
@@ -33,31 +46,51 @@ class SecretService:
         return secret.secret_key
 
     async def get_secret(self, request: Request, secret_key: UUID) -> str | None:
-        # TODO: кеш
         # TODO: проверка ttl секрета
+        # TODO: вынести логику бд и кеша в отдельные методы, но пока нет идей как
+        secret_data = self.cache.hgetall(
+            str(secret_key).encode(),
+        )
 
-        stmt = select(Secret).where(Secret.secret_key == secret_key)
-        result = await self.session.execute(stmt)
-        secret = result.scalars().first()
+        if secret_data:
+            secret = Secret(
+                secret_key=secret_key,
+                secret=secret_data["secret"],
+                passphrase=secret_data["passphrase"],
+                ttl_seconds=int(secret_data["ttl_seconds"]),
+                created_at=datetime.datetime.fromtimestamp(
+                    float(secret_data["created_at"])
+                ),
+            )
+        else:
+            stmt = select(Secret).where(Secret.secret_key == secret_key)
+            result = await self.session.execute(stmt)
+            secret = result.scalars().first()
         if not secret:
             return None
         encoded_secret = secret.secret
-
         self._log_secret_action(Action.get, request, secret)
+
+        self.cache.delete(str(secret_key).encode())
+        delete_stmt = delete(Secret).where(Secret.secret_key == secret_key)
+        await self.session.execute(delete_stmt)
         self._log_secret_action(Action.delete, request, secret)
 
-        await self.session.delete(secret)
         await self.session.commit()
 
         decoded_secret = decode_secret(encoded_secret)
         return decoded_secret
 
     async def delete_secret(self, request: Request, secret_key: UUID) -> None:
+        # TODO: вынести логику бд и кеша в отдельные методы, но пока нет идей как
+
         stmt = select(Secret).where(Secret.secret_key == secret_key)
         result = await self.session.execute(stmt)
         secret = result.scalars().first()
         if not secret:
             return None
+
+        self.cache.delete(str(secret_key).encode())
         await self.session.delete(secret)
 
         self._log_secret_action(Action.delete, request, secret)
